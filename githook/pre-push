@@ -1,0 +1,166 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+# *********************************************************
+# description: pre-push.py
+#    it is for hook git-push for block it
+#    if the commit log is not conform to the specification
+# Auth: wanmin.lwm@alibaba-inc.com
+# Date: 2017-05-24
+# *********************************************************
+
+import os
+import sys
+import commands
+import fileinput
+import subprocess
+
+
+# fixme: linwm need to use dict
+# log config here
+PRCTECT_BRANCH_DEVELOP = 'develop'
+PRCTECT_BRANCH_MASTER = 'master'
+HASHZERO="0000000000000000000000000000000000000000"
+FEATURE='FEATURE'
+OPTIMIZE='OPTIMIZE'
+NONCODE='NONCODE'
+BUGFIX='BUGFIX'
+REVIEWER='REVIEWER'
+REVIEWURL='REVIEWURL'
+
+# exec the cmd and get the result value
+def execCmdList(command):
+	r = os.popen(command)
+	info = r.readlines()
+	for line in info:
+	    line = line.strip('\r\n')
+	    # print line
+	return info
+
+#this method have some encode problem in window, fxxx, you can use execCmdList instead
+def execCmd(command):
+	return execCmdWithStatus(command, False)
+
+def execCmdWithStatus(command, isNeedStatus):
+	(status, output) = commands.getstatusoutput(command)
+	if (isNeedStatus == False):
+		return output
+	else:
+		return (status, output)
+
+def getCurBranch():
+	cmd = "git symbolic-ref --short HEAD"
+	branchlist = execCmdList(cmd)
+	branch = PRCTECT_BRANCH_DEVELOP
+	for value in branchlist:
+		value = value.strip('\r\n')
+		branch = value
+	return branch
+
+def checkLogInfo(keyword, commitId):
+    # commitinfo="git rev-list -n 1 --grep " + keyword + " " + shaRange
+    commitinfo="git log -n 1 " + commitId + " | grep " + keyword
+
+    commitLog = execCmdList(commitinfo)
+    isContain = False
+
+    if (len(commitLog) > 0):
+		isContain = True
+    else:
+        isContain = False
+    # print "result" + result + str(isContain)
+    return (isContain)
+
+def genLogTempleForCommit(extraLog, commitId):
+    # print extraLog
+    log= "-----------------------------------------------------------\n"\
+	"| Error Info: commitId: " + commitId + "\n"\
+	"| " + extraLog +"\n"\
+    "| 当前项目已开启了Log Check强制功能\n"\
+    "| 本次提交内容未经过Log Check流程，所以禁止提交.\n"\
+    "| 请参考Log Check模板规范:\n"\
+    "| FEATURE/OPTIMIZE/BUGFIX/NONCODE: xxx\n"\
+    "| REVIEWER: xxx\n"\
+    "| REVIEWEURL: https://aone.alibaba-inc.com/code/\n"\
+    "| 如果对此规则不了解，请联系 linwm\n"\
+    "-----------------------------------------------------------"
+    return log
+
+def checkLogFormate(commitId):
+	# first step: check REVIEWER
+    if (checkLogInfo(REVIEWER, commitId) == True):
+		# second step: check REVIEWURL
+		if (checkLogInfo(REVIEWURL, commitId) == True):
+			containHeaderTagName = False
+			# third step: check header tag
+			if (checkLogInfo(FEATURE, commitId) == True):
+				containHeaderTagName = True
+			elif (checkLogInfo(OPTIMIZE, commitId) == True):
+				containHeaderTagName = True
+			elif (checkLogInfo(BUGFIX, commitId) == True):
+				containHeaderTagName = True
+			elif (checkLogInfo(NONCODE, commitId) == True):
+				containHeaderTagName = True
+			else:
+				print ''
+
+			if (containHeaderTagName == False):
+				log = 'commit log lack of key tag: '\
+				"FEATURE/OPTIMIZE/BUGFIX/NONCODE"
+				print genLogTempleForCommit(log,commitId)
+				return False
+
+		else:
+			log = 'commit log lack of key tag: '  + REVIEWURL
+			info = genLogTempleForCommit(log,commitId)
+			print info
+			return False
+    else:
+        log = 'commit log lack of key tag: '  +  REVIEWER
+        print genLogTempleForCommit(log, commitId)
+        return False
+
+    print 'Nice, this commit log is perfect!!! id: ' + commitId
+    return True
+
+#here to do your biz
+
+# check protected branches first, the other branches do not check
+branch = getCurBranch()
+if (branch == PRCTECT_BRANCH_DEVELOP):
+	print 'Your branch which to push is <' + branch + '>, need to check'
+elif (branch == PRCTECT_BRANCH_MASTER):
+	print 'Your branch which to push is <' + branch + '>, need to check'
+else:
+	print 'This project branch: <' + branch  + '>, no need to check...'
+	sys.exit(0)
+
+# check the log formate info
+lines = sys.stdin.read().splitlines()
+for line in lines:
+    local_ref, local_sha1, remote_ref, remote_sha1 = line.split()
+    # print local_sha1 + remote_sha1
+    if remote_sha1 == HASHZERO:
+        print_error("Local branch not found any commit hash")
+        sys.exit(1)
+
+    # some day maybe we need to print changed files, so keep it
+    # changed_files = subprocess.check_output(["git", "diff", "--name-status", local_sha1, remote_sha1], universal_newlines=True)
+    # print changed_files
+
+    # check the log range
+    shaRange = remote_sha1 + ".." + local_sha1
+    # print shaRange
+    # print execCmdList("git log --pretty=oneline " + shaRange)
+    log_list = execCmdList("git log --pretty=oneline " + shaRange)
+    logsize = len(log_list)
+    if (logsize > 1):
+		print "You have "  + str(logsize)+ " commits ahead of origin, we strongly recommend that \nyou can combine it to just 1 commit."
+    else:
+	    print "You have "  + str(logsize)+ " commits ahead of origin"
+
+    for commit in log_list:
+		#fixme:linwm here just get short id
+    	if checkLogFormate(commit[0:12]) == False:
+			sys.exit(1)
+
+sys.exit(0)
