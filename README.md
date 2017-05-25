@@ -1,7 +1,7 @@
 ## Git Hook - Log Check 
 
-we hope that the commit log is useful and standard dand, so we need check
-any commit log before some push code to gitlab, so we create 'log check'
+we hope that the commit log is useful and standard, so we need check
+any commit log before some code push to gitlab, so we create '**log check**'
 
 
 ### Function
@@ -16,14 +16,14 @@ PRCTECT_BRANCH_MASTER = 'master'
 ...and more here
 ```
 
-+ you can config which temple you like to use for standard nd log
++ you can custom config which temple you like to use for standard log, for example:
 
 ```
 FEATURE: some feature dic
 REVIEWER: xxxname
 REVIEWURL:https://xxx.com/code/id
 ```
-if we found that you commit lack of some key tag, it will block this push
+if we found that you commit lack of some key tag, it will block this push and show this message:
 
 ```
 ➜  LogCheck git:(develop) git push
@@ -62,7 +62,7 @@ the multi commits to just one, so that the log list line will be more useful and
 
 ### How to use
 
-git hook have many event in its lifecycle, so we choose the pre-push event
+git hook have many event in its lifecycle, so we choose the pre-push event, cause we will commit many times in local, all we need hook is that when they use git-push.
 
 ```
 pre-push
@@ -88,7 +88,10 @@ python {your-workspace-path}/githook/githook.py
 git will be execute this hook file before it push, in that time ,we can block it and 
 have time to do our checking.
 
-### file list:
+### File list:
+
+all this project you only need to fouse on these two files:
+
 **githook.py**: use for mkdir some dir and cp the pre-push file to dst dir 
 **pre-push**: the biz script file and config your temple here
 
